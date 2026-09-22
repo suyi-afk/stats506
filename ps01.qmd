@@ -6,6 +6,8 @@ format:
 editor: visual
 ---
 
+GitHub repository: <https://github.com/suyi-afk/stats506>
+
 # Problem1
 
 # A. Import the data
