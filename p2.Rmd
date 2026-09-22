@@ -1,0 +1,92 @@
+---
+title: "PS01 P2"
+---
+
+
+# A. Import the data
+
+```{r}
+# Read the adult.data file
+adult <- read.csv("./p2/adult.data",
+                  header = FALSE,
+                  sep = ",",
+                  strip.white = TRUE,
+                  na.strings = "?")
+head(adult)
+```
+
+
+# B. Clean and simplify variable names  
+
+We follow the names given in `adult.names`, but change kebab-case to dots.
+
+```{r}
+names(adult) <- c(
+  "age",
+  "workclass",
+  "fnlwgt",
+  "education",
+  "education.num",
+  "marital.status",
+  "occupation",
+  "relationship",
+  "race",
+  "sex",
+  "capital.gain",
+  "capital.loss",
+  "hours.per.week",
+  "native.country",
+  "income"
+)
+
+head(adult)
+```
+
+
+# C. Examine missing values
+
+```{r}
+missing_counts <- colSums(is.na(adult))
+missing_counts
+```
+
+
+# D. Restrict sample to individuals working at least 10 hours
+
+```{r}
+n_before <- nrow(adult)
+
+subset_d <- adult[adult$hours.per.week >= 10, ]
+
+n_after <- nrow(subset_d)
+
+c(n_before, n_after)
+```
+
+
+Before restrict the sample, there are $32,561$ observations. And after the restriction, there are $32,103$ observations.
+
+# E. Remove observations missing occupation, workclass, or native.country  
+
+```{r}
+subset_e <- subset_d[!is.na(subset_d$occupation) & !is.na(subset_d$workclass) & !is.na(subset_d$native.country), ]
+nrow(subset_e)
+```
+
+
+After removing observations with missing values on these columns, there are $29,873$ observations.
+Occupation, workclass, or native country are important variables for income.
+Missing values in these variables may affect the analysis.
+
+# F. Restrict observations further more
+
+```{r}
+subset_f <- subset_e[subset_e$age >= 18 & subset_e$age <= 90 & subset_e$education != "Preschool", ]
+nrow(subset_f)
+```
+
+
+
+# G. Report final sample size
+
+There are $29,523$ observations after the restriction.

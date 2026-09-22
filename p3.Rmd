@@ -1,0 +1,75 @@
+---
+title: "PS01 P3"
+---
+
+The function `nextHappy` computes the next number in a happy-number sequence.
+
+```{r}
+#' Compute the next number in a happy-number sequence
+#'
+#' Takes a positive integer n, splits it into digits, squares each digit, and returns the sum of those squares.
+#'
+#' @param n numeric. The number whose digit-square-sum is computed.
+#' @return numeric. The sum of squares of the digits of n.
+#' @examples
+#' nextHappy(1) # 1
+#' nextHappy(12)  # 1^2 + 2^2 = 1 + 4 = 5
+nextHappy <- function (n) {
+    sum(as.numeric(strsplit(as.character(n), '')[[1]])^2)
+}
+```
+
+The function `happySequence` test if given number is happy. And output the sequence of calculating happy numbers if it is happy.
+
+```{r}
+#' Generate the happy-number sequence for an integer
+#' 
+#' @param n numeric. A positive integer for the start of sequence.
+#' @return list containing two elements:
+#'     $sequence: the sequence starts with n and ends with 1, only presented when n is happy.
+#'     $isHappy: logical. Whether n is happy.
+happySequence <- function (n) {
+    #' A helper recursive function to generate the happy number sequence.
+    #' Returns empty list when the number is unhappy.
+    genSeq <- function (n, prev=c()) {
+        succ = c(prev, n)
+        if (n == 1) {
+            succ
+        } else if (n %in% prev) {
+            c()
+        } else {
+            genSeq(nextHappy(n), succ)
+        }
+    }
+    sequence = genSeq(n)
+    if (length(sequence) == 0) {
+        list(isHappy = FALSE)
+    } else {
+        list(sequence = sequence, isHappy = TRUE)
+    }
+}
+```
+
+With the help of above functions. We working on numbers 1 to 1000.
+
+```{r}
+happyList <- sapply(seq(1, 1000), FUN=function (n) {
+    happySequence(n)$isHappy
+})
+lengthList <- sapply(seq(1, 1000), FUN=function (n) {
+    sequence <- happySequence(n)$sequence
+    if (happySequence(n)$isHappy) {
+        length(sequence)
+    } else {
+        NA
+    }
+})
+c(sum(happyList), mean(happyList), which.max(lengthList))
+```
+
+
+```{r}
+happySequence(356)
+```
+
+There are 143 (14.3%) happy numbers in 1 to 1000. And number 356 has the longest sequence, which contains 7 numbers: 356, 70, 49, 97, 130, 10, 1.

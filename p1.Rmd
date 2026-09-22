@@ -1,0 +1,194 @@
+---
+title: "PS01 P1"
+---
+
+
+
+
+
+
+# A. Import the data
+
+```{r}
+dat <- read.csv("p1/data.csv", sep = ",", header = TRUE)
+head(dat)
+```
+
+
+
+
+
+# B. Verify dataset characteristics
+
+```{r}
+# number of observations
+nrow(dat)
+```
+
+```{r}
+# number of distinct cultivars
+length(unique(dat$Cultivar))
+```
+
+```{r}
+# number of distinct seasons
+length(unique(dat$Season))
+```
+
+```{r}
+# Observation per session
+season_table <- table(dat$Season)
+season_table
+```
+
+
+
+
+The dataset has 320 observations, 40 distinct cultivars, 2 seasons.
+Season 1 has 160 observations, season 2 has 160 observations.
+
+
+
+# C. Answer to following questions
+
+## 1. Correlation between PH and GY
+
+```{r}
+cor(dat$PH, dat$GY)
+```
+
+
+
+
+The correlation between PH and GY is $0.1233$.
+
+
+
+## 2. Correlation by season
+
+```{r}
+dat1 <- dat[dat$Season == 1, ]
+cor(dat1$PH, dat1$GY)
+```
+
+```{r}
+dat2 <- dat[dat$Season == 2, ]
+cor(dat2$PH, dat2$GY)
+```
+
+
+
+
+The correlation between PH and GY is $0.2309$ in season 1, but $-0.0226$ in season 2.
+
+
+
+## 3. Grain yield of the observation with the greatest plant height
+
+```{r}
+dat[which.max(dat$PH), ]
+```
+
+
+
+
+The grain yield of the soybean observation with the greatest plant height is $3304.678$.
+
+
+
+## 4. Percentage of observations with MHG above the overall average
+
+```{r}
+mean_MHG <- mean(dat$MHG)
+mean(dat$MHG > mean_MHG)
+```
+
+
+
+
+There are $47.19\%$ of the observation with MHG above the overall average.
+
+
+
+## 5. Cultivar with the highest average grain yield
+
+```{r}
+mean_GY_by_cultivar <- aggregate(GY ~ Cultivar, data = dat, FUN = mean)
+mean_GY_by_cultivar[which.max(mean_GY_by_cultivar$GY), ]
+```
+
+
+
+
+The cultivar with highest average grain yield is "98R30 CE", whose average grain yield is $3965$.
+
+
+# D. Table of average values (overall + by season)
+
+```{r}
+var_names <- names(dat)[4:11]
+Overall <- sapply(dat[var_names], mean)
+Season1 <- sapply(dat1[var_names], mean)
+Season2 <- sapply(dat2[var_names], mean)
+rbind(Overall, Season1, Season2)
+```
+
+
+
+
+
+# E. T-test comparing grain yield between seasons
+
+## Hypotheses
+
+Denote the mean grain yield of season $i$ as $\mu_i$. Then, the null hypothesis is
+
+$$ H_0: \mu_1 = \mu_2 $$
+
+And the alternative hypothesis is
+
+$$ H_A: \mu_1 \neq \mu_2 $$
+
+First, calculate $t$ using
+
+$$ t = \frac{\bar{\mu}_1 - \bar{\mu}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}} $$
+
+```{r}
+mu1 <- mean(dat1$GY)
+mu2 <- mean(dat2$GY)
+var1 <- var(dat1$GY)
+var2 <- var(dat2$GY)
+n1 <- length(dat1$GY)
+n2 <- length(dat2$GY)
+t <- (mu1 - mu2) / sqrt(var1 / n1 + var2 / n2)
+t
+```
+
+
+
+
+Then we calculate df by
+
+$$ df = \frac{\left(\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}\right)^2}{\frac{(s_1^2/n_1)^2}{n_1-1} + \frac{(s_2^2/n_2)^2}{n_2-1}} $$
+
+```{r}
+df <- (var1 / n1 + var2 / n2)^2 / ((var1 / n1)^2 / (n1 - 1) + (var2 / n2)^2 / (n2 - 1))
+df
+```
+
+
+
+
+Finall, the p value can be calculated by
+
+$$ p = 2 \times (1-F_t(|t|, df)) $$
+
+```{r}
+p <- 2 * (1 - pt(abs(t), df))
+p
+```
+
+
+
+
+Since $p=0.7255 > 0.05$, we cannot reject the null hypothesis. And there's no evidence to suggest that the difference in means is not equal to 0.
