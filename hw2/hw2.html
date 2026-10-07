@@ -2373,6 +2373,7 @@ window.Quarto = {
 </header>
 
 
+<p>GitHub repository: <a href="https://github.com/suyi-afk/stats506/tree/main/hw2" class="uri">https://github.com/suyi-afk/stats506/tree/main/hw2</a></p>
 <section id="problem-1-random-walk-with-momentum" class="level1">
 <h1>Problem 1: Random Walk with Momentum</h1>
 <section id="a.-simulation-function" class="level2">
@@ -2488,23 +2489,23 @@ window.Quarto = {
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">momentum_walk</span>(<span class="dv">1000</span>, <span class="fl">0.6</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] -15 -57</code></pre>
+<pre><code>[1] -39 -73</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">momentum_walk1</span>(<span class="dv">10</span>, <span class="fl">0.6</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 2 6</code></pre>
+<pre><code>[1] -5 -5</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">momentum_walk1</span>(<span class="dv">1000</span>, <span class="fl">0.6</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 14 40</code></pre>
+<pre><code>[1] -34 -10</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">momentum_walk2</span>(<span class="dv">10</span>, <span class="fl">0.6</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 6 0</code></pre>
+<pre><code>[1] -6 -2</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">momentum_walk2</span>(<span class="dv">1000</span>, <span class="fl">0.6</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] -59 -13</code></pre>
+<pre><code>[1]   3 -13</code></pre>
 </div>
 </div>
 </section>
@@ -2643,9 +2644,9 @@ window.Quarto = {
 <span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(benchmark1k)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>            expr    min      lq     mean  median      uq    max neval
-1  momentum_walk   31.3   34.70   42.137   37.55   40.75  347.1   100
-2 momentum_walk1  987.9 1133.25 1271.839 1185.85 1274.90 4189.0   100
-3 momentum_walk2 1692.8 1771.30 1925.779 1859.75 1968.85 3252.8   100</code></pre>
+1  momentum_walk   30.8   33.50   40.880   35.05   38.25  416.6   100
+2 momentum_walk1 1008.7 1087.30 1212.995 1141.35 1184.75 4040.5   100
+3 momentum_walk2 1656.4 1721.85 1862.827 1770.65 1862.80 3164.8   100</code></pre>
 </div>
 </div>
 <div class="cell">
@@ -2658,14 +2659,10 @@ window.Quarto = {
 <span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(benchmark100k)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>            expr      min        lq      mean    median        uq      max
-1  momentum_walk   2.5599   2.75625   2.93439   2.95245   3.05935   3.5790
-2 momentum_walk1 115.1793 122.04805 130.57391 126.37125 135.72790 177.1431
-3 momentum_walk2 181.7129 191.86745 207.55969 200.60565 215.81625 279.1899
-  neval
-1   100
-2   100
-3   100</code></pre>
+<pre><code>            expr      min       lq      mean    median        uq      max neval
+1  momentum_walk   2.5797   2.7058   2.90589   2.91435   3.03665   3.5892   100
+2 momentum_walk1 115.4217 122.4504 130.41183 125.62270 137.21375 164.4774   100
+3 momentum_walk2 181.5652 190.0717 205.92981 197.96985 213.44815 279.5371   100</code></pre>
 </div>
 </div>
 <p>Since the code is <span class="math inline">\(\mathcal{O}(n)\)</span> time complexity. It wouldn’t be amazing that whin larger <span class="math inline">\(n\)</span>, the code consumes more time.</p>

@@ -7,6 +7,8 @@ format:
 editor: visual
 ---
 
+GitHub repository: <https://github.com/suyi-afk/stats506/tree/main/hw2>
+
 ```{r}
 #| child: p1.Rmd
 ```
