@@ -1,0 +1,139 @@
+# Problem 3: Linear Regression
+
+We first download the file once, so we do not need to download it every time we run the code.
+
+```{r}
+youtube.url = "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-03-02/youtube.csv"
+if (!dir.exists('p3')) dir.create('p3')
+if (!file.exists('p3/youtube.csv')) download.file(youtube.url, 'p3/youtube.csv')
+```
+
+```{r}
+youtube <- read.csv('p3/youtube.csv')
+```
+
+## a. Data preparation and de-identification
+
+Then, we de-indentify the data by removing variables such as the brand, title, URLs, YouTube channel, and publication information.
+
+```{r}
+youtube$brand <- NULL
+youtube$superbowl_ads_dot_com_url <- NULL
+youtube$youtube_url <- NULL
+youtube$kind <- NULL
+youtube$id <- NULL
+youtube$etag <- NULL
+youtube$title <- NULL
+youtube$description <- NULL
+youtube$thumbnail <- NULL
+youtube$channel_title <- NULL
+youtube$published_at <- NULL
+```
+
+
+
+```{r}
+dim(youtube)
+head(youtube)
+```
+
+# b. Exploring potential outcomes
+
+```{r}
+summary(youtube[, c("view_count", "like_count", "dislike_count", "favorite_count", "comment_count")])
+```
+
+```{r}
+par(mfrow = c(1, 5))
+
+hist(youtube$view_count, main = "Views", xlab = "")
+hist(youtube$like_count, main = "Likes", xlab = "")
+hist(youtube$dislike_count, main = "Dislikes", xlab = "")
+hist(youtube$favorite_count, main = "Favorites", xlab = "")
+hist(youtube$comment_count, main = "Comments", xlab = "")
+
+par(mfrow = c(1, 1))
+```
+
+Since all `favorite_count` are `0`. This column is not suitable for further analysis.
+
+For all other columns, they are heavily right skewed. And take `log1p` before analysis would be a better idea.
+
+```{r}
+par(mfrow = c(1, 4))
+
+hist(log1p(youtube$view_count), main = "Log1p(Views)", xlab = "")
+hist(log1p(youtube$like_count), main = "Log1p(Likes)", xlab = "")
+hist(log1p(youtube$dislike_count), main = "Log1p(Dislikes)", xlab = "")
+hist(log1p(youtube$comment_count), main = "Log1p(Comments)", xlab = "")
+
+par(mfrow = c(1, 1))
+```
+
+After transforming using `log1p`, the data have a better shape then. And we will use the transformed data in following regressions.
+
+## c. Fitting linear regression models
+
+```{r}
+outcomes <- c("view_count", "like_count", "dislike_count", "comment_count")
+predictors <- c("funny", "show_product_quickly", "patriotic", "celebrity", "danger", "animals", "use_sex")
+```
+
+```{r}
+outcome <- outcomes[1]
+predictor <- predictors[1]
+lm_results <- do.call(rbind, lapply(outcomes, function (outcome) {
+    data.frame(t(sapply(predictors, function (predictor) {
+        model <- lm(as.formula(paste0("log1p(", outcome, ") ~ as.numeric(", predictor, ") + year")), data=youtube)
+        c(outcome=outcome, predictor=predictor, coefficients=summary(model)$coefficients[2, 1], p.value=summary(model)$coefficients[2, 4])
+    })))
+}))
+rownames(lm_results) <- 1:nrow(lm_results)
+lm_results$coefficients <- as.numeric(as.character(lm_results$coefficients))
+lm_results$p.value <- as.numeric(as.character(lm_results$p.value))
+lm_results
+```
+
+```{r}
+lm_results[lm_results$p.value < 0.05, ]
+```
+
+at the $\alpha=0.05$ significance level, there are no pairs of predictors and outcomes that are statistically significantly associated with each other.
+
+```{r}
+view_count_results <- lm_results[lm_results$outcome == 'view_count', ]
+view_count_results[order(view_count_results$coefficients, decreasing = TRUE), ]
+```
+
+For `view_count`, `danger` has the largest positive estimated association with it.
+
+## d. Estimating regression coefficients using matrix algebra
+
+We can calculate the regression
+$$ \mathrm{log1p}(ViewCount) \sim Danger + Year $$
+using the `lm` function in R as follow
+
+```{r}
+summary(lm(log1p(view_count) ~ danger + year, data = youtube))
+```
+
+And on the other hand. We try to calculate it manually using formula
+
+$$ \hat{\mathbf{\beta}} = \left(\mathbf{X}^\top \mathbf{X}\right)^{-1}\mathbf{X}^\top \mathbf{y} $$
+
+```{r}
+present_data <- na.omit(youtube[, c("view_count", "danger", "year")])
+
+y <- log1p(present_data$view_count)
+
+X <- cbind(
+  "(Intercept)" = 1, 
+  danger = as.numeric(present_data$danger), 
+  year = present_data$year
+)
+
+beta_hat <- solve(t(X) %*% X) %*% t(X) %*% y
+beta_hat
+```
+
+And we can see that they have the same coefficients.

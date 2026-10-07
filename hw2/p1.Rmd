@@ -1,0 +1,236 @@
+# Problem 1: Random Walk with Momentum
+
+## a. Simulation function
+
+Before moving on, let's create a function that helps sanitize the input of momentum walk.
+
+We need to verify that $n$ is positive integer, and $p$ is a probability in $[0, 1]$.
+
+```{r}
+#' A common helper function which check if
+#'     * n is positive integer, and
+#'     * p in [0, 1]
+#' 
+#' @param f the implementation of momentum walk
+#' @return implementation with parameter guarded
+momentum_walk_santilize <- function (f) {
+    function (n, p) {
+        if (!is.numeric(n) || (n < 1) || as.integer(n) != n) {
+            stop("n must be a positive integer")
+        }
+        if (!is.numeric(p) || p < 0 || p > 1) {
+            stop("p must be a probability between 0 and 1")
+        }
+        f(n, p)
+    }
+}
+```
+
+Then, let's focus on the first implementation.
+
+The first implementation using vectorized apporach. 1. We use `runif > p` to check if we need a new direction. 2. Calculate the accumulated sum, so we know how many directions we need to decide, and in each step which direction we need to use. 3. Use $\mathrm{i}^{d}$ to get 4 directions, and sum these complex numbers to get the destination. 4. Convert the destination to two numbers
+
+```{r}
+#' Consider a particle moving in two dimensions. The particle starts at
+#' $$ (x,y)=(0,0) $$
+#' At each step, the particle moves one unit in one of four directions:
+#' right:(+1,0), left:(-1,0), up:(0,+1), down:(0,−1)
+#' For the first step, choose one of the four directions with equal
+#' probability (which means, 1/4).
+#' For every subsequent steps, With probability p, the particle moves
+#' in the same direction as the previous step.
+#' With probability 1−p, it chooses one of the four directions at
+#' random, with equal probability.
+#' 
+#' @param n number of steps
+#' @param p probability of choosing the same direction as the previous step
+#'          not that for probability 1-p, there are still chances of choosing
+#'          the same direction as the previous step
+#' @return two integers representing the destination of moving
+momentum_walk <- momentum_walk_santilize(function (n, p) {
+    has_turn <- c(TRUE, (runif(n - 1) > p))
+    turn_count <- cumsum(has_turn)
+    total_turn <- turn_count[length(turn_count)]
+    directions <- sample(1:4, total_turn, replace = TRUE)[turn_count]
+    destination = sum(1i ** directions)
+    c(Re(destination), Im(destination))
+})
+```
+
+## b. Implement the simulation
+
+Here is the loop approach.
+
+1.  Repeat until no remaining steps needed, starting from `n` steps
+2.  Since the continuous steps in single direction follow Geometric(1-p), we get the number of steps in this direction directlty using `rgeom`.
+3.  Then, we sum all the steps to get destination
+
+```{r}
+#' Same as `momentum_walk` but with loops
+#' 
+#' @param n number of steps
+#' @param p probability of keeping previous direction
+#' @return the destination
+momentum_walk1 <- momentum_walk_santilize(function(n, p) {
+    if (p == 1) {
+        direction <- sample(1:4, size=1)
+        destination <- 1i ** direction * n
+        return(c(Re(destination), Im(destination)))
+    }
+
+    steps_remain <- n
+    destination <- 0
+    while (steps_remain > 0) {
+        steps <- min(steps_remain, rgeom(1, 1 - p) + 1)
+        direction <- sample(1:4, size=1)
+        steps_remain <- steps_remain - steps
+        destination <- destination + 1i ** direction * steps
+    }
+    c(Re(destination), Im(destination))
+})
+```
+
+Here is the `apply` approach.
+
+1.  Chose a direction initially.
+2.  Repeat `n` times, each time choosing a new direction with probability $1-p$, or keep the previous direction otherwise.
+3.  Get a list of each steps, and then sum them up get destination.
+
+```{r}
+#' Same as `momentum_walk` but with applies
+#' 
+#' @param n the number of steps
+#' @param p the probability of keeping previous direction
+#' @return the destination
+momentum_walk2 <- momentum_walk_santilize(function (n, p) {
+    direction <- sample(1:4, size=1)
+    destination <- sum(sapply(1:n, function (step) {
+        direction <<- if (runif(1) > p) sample(1:4, size=1) else direction
+        1i ** direction
+    }))
+    c(Re(destination), Im(destination))
+})
+```
+
+We can test our code
+
+```{r}
+print(momentum_walk(10, 0.6))
+print(momentum_walk(1000, 0.6))
+print(momentum_walk1(10, 0.6))
+print(momentum_walk1(1000, 0.6))
+print(momentum_walk2(10, 0.6))
+print(momentum_walk2(1000, 0.6))
+```
+
+## c. Reproducibility
+
+In order to ensure the reproducibility, we need to config random seed in our code.
+
+```{r}
+set.seed(42)
+print(momentum_walk(10, 0.6))
+set.seed(42)
+print(momentum_walk(10, 0.6))
+
+set.seed(42)
+print(momentum_walk1(10, 0.6))
+set.seed(42)
+print(momentum_walk1(10, 0.6))
+
+set.seed(42)
+print(momentum_walk2(10, 0.6))
+set.seed(42)
+print(momentum_walk2(10, 0.6))
+```
+
+```{r}
+set.seed(42)
+print(momentum_walk(1000, 0.6))
+set.seed(42)
+print(momentum_walk(1000, 0.6))
+
+set.seed(42)
+print(momentum_walk1(1000, 0.6))
+set.seed(42)
+print(momentum_walk1(1000, 0.6))
+
+set.seed(42)
+print(momentum_walk2(1000, 0.6))
+set.seed(42)
+print(momentum_walk2(1000, 0.6))
+```
+
+Above execution shows that, when seed is given, the output is reproducible.
+
+## d. Does momentum matter?
+
+```{r}
+as.data.frame(t(sapply(c(0, 0.5, 0.9), function (p) {
+    set.seed(42)
+    destination = momentum_walk(1000, p)
+    c(p = p, destination = destination, distance = sqrt(sum(destination ^ 2)))
+})))
+```
+
+From these three simulations, there is no clear pattern that the distance increases as $p$ increases. Although higher momentum should generally lead to a larger distance, a single simulation for each value of $p$ is not enough to show this pattern clearly because of randomness.
+
+## e. Monte Carlo simulation
+
+So we try to simulate 1,000 times. And see if we can get a better understanding of the distance.
+
+```{r}
+simulation_result <- as.data.frame(t(sapply(c(0, 0.25, 0.5, 0.75, 0.9), function (p) {
+    set.seed(42)
+    mean_distance = mean(sapply(1:1000, function (i) sqrt(sum(momentum_walk(1000, p) ^ 2))))
+    c(p = p, mean_distance = mean_distance)
+})))
+
+simulation_result
+```
+
+```{r}
+plot(mean_distance ~ p, data = simulation_result, type = 'b', xlab = 'p', ylab = 'mean distance', main = 'Distance of random walks with momentum')
+```
+
+After 1,000 simulations, the pattern is clearer. The mean final distance increases as $p$ increases.
+
+## f. Compare computational performance
+
+We run benchmarks with `n = 1000, p = 0.6`, and `n = 100000, p = 0.6` using all 3 functions.
+
+```{r}
+library(microbenchmark)
+```
+
+```{r}
+benchmark1k <- microbenchmark(
+    momentum_walk  = momentum_walk(1000, 0.6),
+    momentum_walk1 = momentum_walk1(1000, 0.6),
+    momentum_walk2 = momentum_walk2(1000, 0.6),
+    times = 100
+)
+
+summary(benchmark1k)
+```
+
+```{r}
+benchmark100k <- microbenchmark(
+    momentum_walk  = momentum_walk(100000, 0.6),
+    momentum_walk1 = momentum_walk1(100000, 0.6),
+    momentum_walk2 = momentum_walk2(100000, 0.6),
+    times = 100
+)
+
+summary(benchmark100k)
+```
+
+Since the code is $\mathcal{O}(n)$ time complexity. It wouldn't be amazing that whin larger $n$, the code consumes more time.
+
+The vectorlized code runs fastest. That's because the vectorized version take the advantage of using underlying C code to boost the performance.
+
+And the later 2 versions cannot be vectorlized, and is \~40x slower.
+
+However, version 1 is still faster, that due to we optimized the code using `rgeom` to move multiple steps at once.
+
+The performance difference becomes larger as $n$ increases.

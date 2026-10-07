@@ -1,0 +1,18 @@
+---
+title: "Homework 2"
+author: "Yifei Wang"
+format: html
+editor: visual
+---
+
+```{r}
+#| child: p1.Rmd
+```
+
+```{r}
+#| child: p2.Rmd
+```
+
+```{r}
+#| child: p3.Rmd
+```

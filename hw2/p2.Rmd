@@ -1,0 +1,52 @@
+# Problem 2: Monte Carlo Simulation of Campus Bus Arrivals
+
+```{r}
+#' Simulate total number of passengers who board the bus during one day, under the following assumptions:
+#'     * 6 AM to 8 AM (3 hours): The number of passengers per hour follows a Poisson distribution with mean 4.
+#'     * 9 AM (1 hour): The number of passengers follows a Normal distribution with mean 45 and variance 16.
+#'     * 10 AM to 3 PM (6 hours): The number of passengers per hour follows a Poisson distribution with mean 15.
+#'     * 4 PM (1 hour): The number of passengers follows a Normal distribution with mean 55 and variance 25.
+#'     * 5 PM to 10 PM (6 hours): The number of passengers per hour follows a Poisson distribution with mean 9.
+passengers_count <- function () {
+    sum(c(
+        rpois(3, 4),
+        rnorm(1, 45, 4),
+        rpois(6, 15),
+        rnorm(1, 55, 5),
+        rpois(6, 9)
+    ))
+}
+```
+
+```{r}
+set.seed(42)
+counts <- replicate(10000, passengers_count())
+```
+
+```{r}
+hist(counts, plot=TRUE)
+```
+
+```{r}
+summary(counts)
+```
+
+```{r}
+mean(counts)
+```
+
+```{r}
+sd(counts)
+```
+
+```{r}
+z <- (mean(counts) - 256) / (sd(counts) / sqrt(10000))
+p <- 2 * (1 - pnorm(abs(z)))
+p
+```
+
+With math calculation, we may conclude the expected value of number of passengers is $256$.
+
+And under the simulation above, the mean value is $256.04$ with standard deviation $13.99$.
+
+The simulation meets the math calculation as expected.
