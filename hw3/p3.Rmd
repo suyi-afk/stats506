@@ -1,0 +1,91 @@
+# Problem 3 - Australian Records
+
+## Load the data
+
+```{r}
+if (!file.exists("./p3/au-500.csv")) {
+  if (!dir.exists("p3")) dir.create("p3")
+  au500_url = "https://www.briandunning.com/sample-data/au-500.zip"
+  f <- tempfile(fileext = ".zip")
+  download.file(au500_url, f, method = "curl", extra = "-s")
+  unzip(f, files = "au-500.csv", exdir = "./p3")
+}
+```
+
+```{r}
+df <- read.csv("./p3/au-500.csv")
+```
+
+# Part A
+
+What percentage of the websites are .com’s (as opposed to .net, .com.au, etc)?
+
+```{r}
+table(sub(".*\\.", "", df$web))
+```
+
+None website is ended with `.com`. All websites in the dataset ends with `.au`.
+
+## Part B
+
+What is the most common domain name amongst the email addresses? (In the email “statistics@umich.edu”, “umich.edu” is the domain name.)
+
+```{r}
+counts <- table(sub(".*@", "", df$email))
+counts[order(counts, decreasing = TRUE)][1:5]
+```
+
+The most common domain name amongst the email address is `hotmail.com`.
+
+## Part C
+
+What proportion of company names contain a non-alphabetic character, excluding commas and whitespace. (E.g. “Jane Doe, LLC” would not contain an eligible non-alphabetic character; “Plumber 247” would.) What about if you also exclude ampersands (“&”)?
+
+```{r}
+mean(grepl("[^\\p{l},\\s]", df$company_name, perl = TRUE))
+```
+
+```{r}
+mean(grepl("[^\\p{l},\\s&]", df$company_name, perl = TRUE))
+```
+
+There are 9% company names containing a non-alphabetic character, excluding commas and whitespace.
+And the proportion decrease to 0.8% if we further exclude ampersands.
+
+## Part D
+
+In Australia, phone have 10 digits - but unlike in the US where we write all numbers as “123-456-7890”, they write land lines and cell phones differently.
+- Landlines: 12-3456-7890
+- Cell phones: 1234-567-890
+
+There are two different phones listed for each record. Make all phone numbers written like cell phones. Show it works by printing the first 10 phone numbers of each column.
+
+```{r}
+format_cell_phone <- function(x) {
+  sub(
+    "(\\d\\d\\d\\d)(\\d\\d\\d)(\\d\\d\\d)",
+    "\\1-\\2-\\3",
+    gsub("-", "", x)
+  )
+}
+c(format_cell_phone(df$phone1)[1:10], format_cell_phone(df$phone2)[1:10])
+```
+
+## Part E
+
+Produce a histogram of the log of the apartment numbers for all addresses. (You may assume any number at the end of the an address is an apartment number.)
+
+```{r}
+apartment_numbers <- na.omit(as.numeric(sub(".*?(\\d*)$", "\\1", df$address)))
+hist(log(apartment_numbers[apartment_numbers > 0]))
+```
+
+## Part F
+
+Benford’s law is an observation about the distribution of the leading digit of real numerical data. Examine whether the apartment numbers appear to follow Benford’s law. Do you think the apartment numbers would pass as real data?
+
+```{r}
+table(as.numeric(sub("^(.).*", "\\1", as.character(apartment_numbers))))
+```
+
+As the counts show, the data does not follow Benford's law. The digit 1 should appear most often, but digits 2 and 9 appear more frequently. Therefore, I do not think these apartment numbers would pass as real data based on Benford's law.

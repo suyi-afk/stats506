@@ -1,0 +1,200 @@
+---
+title: "PS03 P1"
+---
+
+
+
+# Problem 1
+
+## Load data
+
+```{r}
+library("haven")
+
+prepare <- function(url, dest) {
+  if (!file.exists(dest)) {
+    download.file(url, destfile = dest, method = "curl", extra = "-s")
+  }
+  read_xpt(dest)
+}
+
+base_url <- "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2015/DataFiles/"
+base_folder <- "./p1/"
+if (!dir.exists("p1")) dir.create("p1")
+aux_data <- prepare(
+  paste0(base_url, "AUX_I.xpt"),
+  paste0(base_folder, "AUX_I.xpt")
+)
+demo_data <- prepare(
+  paste0(base_url, "DEMO_I.xpt"),
+  paste0(base_folder, "DEMO_I.xpt")
+)
+```
+
+```{r}
+df <- merge(aux_data, demo_data, by = "SEQN")
+dim(df)
+```
+
+
+After merging, we have 4,582 observations.
+
+## Data Clean Up
+
+```{r}
+df$RIAGENDR <- factor(
+  df$RIAGENDR,
+  levels = c(1, 2),
+  labels = c("Male", "Female")
+)
+
+df$DMDCITZN <- factor(
+  df$DMDCITZN,
+  levels = c(1, 2),
+  labels = c("Citizen by birth or naturalization", "Not a citizen of the US")
+)
+
+df$DMDHHSZA <- factor(
+  df$DMDHHSZA,
+  levels = c(0, 1, 2, 3),
+  labels = c("0", "1", "2", "3 or more"),
+  ordered = TRUE
+)
+
+df$INDHHIN2 <- factor(
+  df$INDHHIN2,
+  levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15),
+  labels = c(
+    "$ 0 to $ 4,999",
+    "$ 5,000 to $ 9,999",
+    "$10,000 to $14,999",
+    "$15,000 to $19,999",
+    "$20,000 to $24,999",
+    "$25,000 to $34,999",
+    "$35,000 to $44,999",
+    "$45,000 to $54,999",
+    "$55,000 to $64,999",
+    "$65,000 to $74,999",
+    "$75,000 to $99,999",
+    "$100,000 and Over"
+  ),
+  ordered = TRUE
+)
+```
+
+```{r}
+369 / length(df$INDHHIN2)
+```
+
+
+
+`df$INDHHIN2` mixed values with overlapping intervals. The category "Under $20,000" and "$20,000 and Over" do not have a good order compared with other groups.
+There are total 369 (8%) data in these two categories. We consider to drop these data, since losing 8% of data do not make great harm to modeling later.
+But remove these data make the order relationship more clear.
+
+```{r}
+df_model <- data.frame(
+  Right = df$AUXTWIDR,
+  Left = df$AUXTWIDL,
+  Gender = df$RIAGENDR,
+  Citizenship = df$DMDCITZN,
+  Children = c(
+    "0" = 0,
+    "1" = 1,
+    "2" = 2,
+    "3 or more" = 3
+  )[as.character(df$DMDHHSZA)],
+  Income_log = c(
+    "$ 0 to $ 4,999" = log(sqrt(2500)),
+    "$ 5,000 to $ 9,999" = log(sqrt(5000 * 10000)),
+    "$10,000 to $14,999" = log(sqrt(10000 * 15000)),
+    "$15,000 to $19,999" = log(sqrt(15000 * 20000)),
+    "$20,000 to $24,999" = log(sqrt(20000 * 25000)),
+    "$25,000 to $34,999" = log(sqrt(25000 * 35000)),
+    "$35,000 to $44,999" = log(sqrt(35000 * 45000)),
+    "$45,000 to $54,999" = log(sqrt(45000 * 55000)),
+    "$55,000 to $64,999" = log(sqrt(55000 * 65000)),
+    "$65,000 to $74,999" = log(sqrt(65000 * 75000)),
+    "$75,000 to $99,999" = log(sqrt(75000 * 100000)),
+    "$100,000 and Over" = log(sqrt(100000 * 200000))
+  )[as.character(df$INDHHIN2)]
+)
+```
+
+
+
+We convert children number and income into continuous variables. The children count has a category "3 or more", and we treat it as 3 to simplify the model.
+And for income, we use the midpoints of each interval and apply the log transformation.
+And since we use midpoint, we have to choose a upper bound for the last interval. We choose 200k for it so it has width 4x the previous interval.
+
+## Fit Models
+
+```{r}
+model_1l <- glm(Left ~ Gender, data = df_model, family = poisson)
+model_1r <- glm(Right ~ Gender, data = df_model, family = poisson)
+model_2l <- glm(
+  Left ~ Gender + Citizenship + Children + Income_log,
+  data = df_model, family = poisson
+)
+model_2r <- glm(
+  Right ~ Gender + Citizenship + Children + Income_log,
+  data = df_model, family = poisson
+)
+models <- list(
+  "1L" = model_1l, "1R" = model_1r,
+  "2L" = model_2l, "2R" = model_2r
+)
+```
+
+```{r}
+fit_result <- data.frame(
+  row.names = names(models),
+  SampleSize = sapply(models, nobs),
+  Intercept = sapply(models, \(x) unname(exp(coef(x))["(Intercept)"])),
+  GenderFemale = sapply(models, \(x) unname(exp(coef(x))["GenderFemale"])),
+  NotCitizen = sapply(models, \(x) {
+    unname(exp(coef(x))["CitizenshipNot a citizen of the US"])
+  }),
+  Children = sapply(models, \(x) unname(exp(coef(x))["Children"])),
+  Income_log = sapply(models, \(x) unname(exp(coef(x))["Income_log"])),
+  PresdoR2 = sapply(models, \(x) 1 - x$deviance / x$null.deviance),
+  AIC = sapply(models, \(x) AIC(x))
+)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+kable(fit_result,
+  format = "html",
+  digits = 3,
+  caption = "Regression Model Comparison",
+  align = "c"
+) |> kable_styling(
+  bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+  full_width = FALSE,
+  position = "center"
+)
+```
+
+```{r}
+summary(model_2l)
+```
+
+```{r}
+est <- summary(model_2l)$coefficients["GenderFemale", "Estimate"]
+est
+```
+
+```{r}
+se <- summary(model_2l)$coefficients["GenderFemale", "Std. Error"]
+ci <- est + c(-1, 1) * 1.96 * se
+ci
+exp(ci)
+```
+
+
+Since p-value < 0.001, there is a statistically significant difference between females and males.
+And given IRR = 1.020, females have higher average Tympanometric width in their left ear compared to males.
+The 95% CI is (1.013, 1.027) which strictly above 1, also confirmed that the statistically significant increase in predicted Tympanometric width for women relative to men.

@@ -1,0 +1,204 @@
+----
+title: "PS03 P2"
+----
+
+```
+# Problem 2 - Sakila
+```
+
+```{r}
+library(DBI)
+library(RSQLite)
+library(dplyr)
+library(microbenchmark)
+```
+
+
+## Load the data
+
+```{r}
+if (!dir.exists("./p2/sakila-sqlite3")) {
+  if (!dir.exists("p3")) dir.create("p3")
+  system(paste(
+    "git clone",
+    "https://github.com/bradleygrant/sakila-sqlite3.git",
+    "./p2/sakila-sqlite3",
+    "-q"
+  ))
+}
+```
+
+
+## Open the database
+
+```{r}
+con <- dbConnect(RSQLite::SQLite(), "./p2/sakila-sqlite3/sakila_master.db")
+```
+
+
+## Part A
+
+For each store, how many customers does that store have, and what percentage of customers of that store are active in the system?
+
+```{r}
+a1 <- function() {
+  customer_table <- dbGetQuery(con, "
+    SELECT store_id, customer_id, active
+    FROM customer
+  ")
+  customer_table |>
+    group_by(.data$store_id) |>
+    summarise(
+      total_customers = n(),
+      active_percent = mean(.data$active == 1) * 100
+    )
+}
+
+a1()
+```
+
+```{r}
+a2 <- function() {
+  dbGetQuery(con, "
+    SELECT 
+      store_id,
+      COUNT(customer_id) AS total_customers,
+      AVG(active) * 100 AS active_percent
+    FROM customer
+    GROUP BY store_id;
+  ")
+}
+
+a2()
+```
+
+```{r}
+microbenchmark(
+  a1(),
+  a2(),
+  times = 100
+)
+```
+
+
+Both methods report that there are 2 stores: store 1 has 326 customers, 97.5% are active; while store 2 has 273 customers, 97.4% are active.
+
+The benchmark shows that the second approach is 10x faster than the first one.
+
+## Part B
+
+Generate a table identifying the names and country of each staff member.
+
+```{r}
+b1 <- function() {
+  staff_table <- dbGetQuery(con,
+    "SELECT first_name, last_name, address_id FROM staff"
+  )
+  address_table <- dbGetQuery(con,
+    "SELECT address_id, city_id FROM address"
+  )
+  city_table <- dbGetQuery(con, "SELECT city_id, country_id FROM city")
+  country_table <- dbGetQuery(con, "SELECT country_id, country FROM country")
+
+  staff_table |>
+    inner_join(address_table, by = c("address_id" = "address_id")) |>
+    inner_join(city_table, by = c("city_id" = "city_id")) |>
+    inner_join(country_table, by = c("country_id" = "country_id")) |>
+    select(.data$first_name, .data$last_name, .data$country)
+}
+
+b1()
+```
+
+```{r}
+b2 <- function() {
+  dbGetQuery(con, "
+    SELECT first_name, last_name, country
+    FROM staff s
+      JOIN address a ON s.address_id = a.address_id
+      JOIN city c ON a.city_id = c.city_id
+      JOIN country o ON c.country_id = o.country_id
+  ")
+}
+
+b2()
+```
+
+```{r}
+microbenchmark(
+  b1(),
+  b2(),
+  times = 100
+)
+```
+
+
+Both methods retrieved two staff members. Mike Hillyer from Canada and Jon Stephens from Australia.
+
+This time, the second method is 40x faster than the first one.
+
+## Part C
+
+Identify the name(s) of the film(s) which was/were rented for the highest dollar value.
+
+```{r}
+c1 <- function() {
+  payment_table <- dbGetQuery(con, "
+    SELECT rental_id, amount
+    FROM payment
+  ")
+  rental_table <- dbGetQuery(con, "
+    SELECT rental_id, inventory_id
+    FROM rental
+  ")
+  inventory_table <- dbGetQuery(con, "
+    SELECT inventory_id, film_id
+    FROM inventory
+  ")
+  film_table <- dbGetQuery(con, "
+    SELECT film_id, title
+    FROM film
+  ")
+
+  payment_table |>
+    inner_join(rental_table, by = c("rental_id" = "rental_id")) |>
+    inner_join(inventory_table, by = c("inventory_id" = "inventory_id")) |>
+    inner_join(film_table, by = c("film_id" = "film_id")) |>
+    group_by(.data$title) |>
+    summarise(total_amount = sum(.data$amount)) |>
+    arrange(desc(.data$total_amount)) |>
+    head(1)
+}
+
+c1()
+```
+
+```{r}
+c2 <- function() {
+  dbGetQuery(con, "
+    SELECT f.title, sum(amount) total_amount
+    FROM payment p
+      JOIN rental r ON p.rental_id = r.rental_id
+      JOIN inventory i ON r.inventory_id = i.inventory_id
+      JOIN film f ON i.film_id = f.film_id
+    GROUP BY f.film_id
+    ORDER BY sum(p.amount) DESC
+    LIMIT 1;  
+  ")
+}
+
+c2()
+```
+
+```{r}
+microbenchmark(
+  c1(),
+  c2(),
+  times = 100
+)
+```
+
+
+Both methods report the film "TELEGRAPH VOYAGE" has highest rented income, which is $231.73.
+
+However, for this case, the first method is slightly faster than the second one.

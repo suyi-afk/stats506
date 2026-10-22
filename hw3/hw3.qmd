@@ -1,0 +1,22 @@
+---
+title: "Homework 3"
+author: "Yifei Wang"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+GitHub repository: <https://github.com/suyi-afk/stats506/tree/main/hw3>
+
+```{r}
+#| child: p1.Rmd
+```
+
+```{r}
+#| child: p2.Rmd
+```
+
+```{r}
+#| child: p3.Rmd
+```
