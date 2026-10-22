@@ -2,9 +2,9 @@
 title: "PS03 P2"
 ----
 
-```
+
 # Problem 2 - Sakila
-```
+
 
 ```{r}
 library(DBI)
