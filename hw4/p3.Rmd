@@ -1,0 +1,295 @@
+---
+title: "PS04 P3"
+---
+
+```{r, echo=FALSE, results='asis'}
+cat('<base target="_blank">')
+```
+
+# Problem 3 - Visualization
+
+## Load data
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(slider)
+library(ggrepel)
+```
+
+```{r}
+covid19_url = paste(
+    "https://raw.githubusercontent.com/nytimes/covid-19-data/",
+    "refs/heads/master/rolling-averages/us-states.csv"
+)
+if (!dir.exists('p3')) dir.create('p3')
+if (!file.exists('./p3/us-states.csv')) download.file(covid19_url, './p3/us-states.csv')
+```
+
+```{r}
+covid19 <- read.csv('./p3/us-states.csv') %>%
+  mutate(date = as.Date(date))
+```
+
+
+## Process data
+
+How many major and minor spikes in cases were there?
+
+```{r}
+ daily_cases <- covid19 %>%
+    group_by(date) %>%
+    summarize(
+        new_case_count = sum(cases)
+    ) %>%
+    complete(
+        date = seq(min(date), max(date), by = "day"),
+        fill = list(new_case_count = 0)
+    ) %>%
+    replace_na(list(new_case_count = 0)) %>%
+    arrange(date) %>%
+    mutate(
+      ma_7 = slide_dbl(
+        new_case_count,
+        mean,
+        .before = 3,
+        .after = 3,
+        .complete = TRUE
+      ),
+      ma_35 = slide_dbl(
+        new_case_count,
+        mean,
+        .before = 17,
+        .after = 17,
+        .complete = TRUE
+      )
+    )
+```
+
+```{r}
+case_peak_35 <- daily_cases %>%
+    mutate(
+        ma_35_max = slide_dbl(
+            ma_35,
+            max,
+            .before = 45,
+            .after = 45,
+            .complete = TRUE
+        )
+    ) %>%
+    filter(ma_35_max == ma_35) %>%
+    arrange(desc(ma_35)) %>%
+    select(date, new_case_count, ma_7, ma_35)
+
+case_peak_35
+```
+
+```{r}
+case_peak_35_top4 <- case_peak_35 %>%
+  slice_max(order_by = ma_35, n = 4, with_ties = FALSE) %>%
+  mutate(
+    label = case_when(
+      date == as.Date("2022-01-14") ~ "Omicron BA.1",
+      date == as.Date("2020-12-28") ~ "Winter 2020-21",
+      date == as.Date("2021-08-30") ~ "Delta",
+      date == as.Date("2022-07-22") ~ "BA.4/BA.5"
+    )
+  )
+```
+
+```{r}
+daily_cases %>%
+  ggplot(aes(x = date)) +
+  geom_line(
+    aes(y = new_case_count, color = "Daily cases"),
+    alpha = 0.45,
+    linewidth = 0.6
+  ) +
+  geom_line(
+    data = daily_cases %>% drop_na(ma_35),
+    aes(y = ma_35, color = "35-day moving average"),
+    linewidth = 1.2,
+    linetype = "solid"
+  )  +
+  geom_point(
+    data = case_peak_35,
+    aes(x = date, y = ma_35),
+    inherit.aes = FALSE,
+    color = "red",
+    size = 2.8
+  ) +
+  geom_text_repel(
+    data = case_peak_35_top4,
+    aes(x = date, y = ma_35, label = label),
+    inherit.aes = FALSE,
+    direction = "y",
+    nudge_y = 10000,
+    max.overlaps = Inf
+  ) +
+  scale_color_manual(
+    name = NULL,
+    values = c(
+      "Daily cases" = "#B8B8B8",
+      "35-day moving average" = "#0072B2"
+    )
+  ) +
+  labs(
+    title = "Trend in New COVID-19 Cases Across the U.S.",
+    x = "Year",
+    y = "Number of New Cases"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+```
+
+From the plot above, we can see that there are 6 minor spikes including the winter 2020-21 wave, delta wave, BA.4/BA.5 wave. And there is a major spike in January 2022 caused by Omicron BA.1.
+
+For the states with the highest and lowest overall rates per persons, what differences do you see in their trajectories over time?
+
+```{r}
+covid19_rate <- covid19 %>%
+    select(date, state, cases_avg_per_100k) %>%
+    complete(
+        state,
+        date = seq(min(date), max(date), by = "day"),
+        fill = list(cases_avg_per_100k = 0)
+    ) %>%
+    replace_na(list(cases_avg_per_100k = 0))
+covid19_rate %>%
+    group_by(state) %>%
+    summarise(
+        overall_rate = mean(cases_avg_per_100k),
+        .groups = "drop"
+    ) %>%
+    filter(overall_rate == max(overall_rate) | overall_rate == min(overall_rate))
+```
+
+```{r}
+covid19_rate %>%
+  filter(state %in% c("Rhode Island", "Maine")) %>%
+  ggplot(aes(x = date, y = cases_avg_per_100k, color = state)) +
+  geom_line(linewidth = 1.2) +
+  scale_color_manual(
+    name = NULL,
+    values = c(
+      "Rhode Island" = "#D55E00",
+      "Maine" = "#0072B2"
+    )
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "COVID-19 Case-Rate Compare",
+    subtitle = "Rhode Island vs. Maine",
+    x = "Year",
+    y = "7-day Average New Cases per 100,000 Persons"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+```
+
+```{r}
+covid19_rate %>%
+  filter(
+    state %in% c("Rhode Island", "Maine"),
+    date >= as.Date("2021-12-01"),
+    date <= as.Date("2022-03-31")
+  ) %>%
+  group_by(state) %>%
+  slice_max(cases_avg_per_100k, n = 1, with_ties = FALSE) %>%
+  select(state, date, cases_avg_per_100k)
+```
+
+Based on the given data, Rhode Island had the highest average reported case rate (37.39/100k) over the full study period, while Maine has the lowest (19.02/100k). And trajectory of Rhode Island was generally more pronounced with larger spikes, especially In early 2022. Maine’s rates were lower and its curve was flatter for much of the period.
+
+These data show a difference in reported case rates. But we cannot infer that the states’ underlying infection trajectories differed. After searching related news, there are [reports indicate that Rhode Island mobilized National Guard members to support testing][1], which may have helped expand testing capacity. While, [Maine reported a backlog of positive test results][2], suggesting that its reported case counts may have been delayed or even incomplete. Thus, these data may not fully reflect the actual spread of COVID-19.
+
+
+[1]: https://www.providencejournal.com/story/news/local/2022/01/04/rhode-island-national-guard-called-out-rhode-island-governor-dan-mckee/9091649002/
+[2]: https://www.pressherald.com/2022/01/19/state-reports-1545-new-cases-of-covid-19-and-30-additional-deaths/
+
+Identify, to the best of your ability without a formal test, the first five states to experience Covid in a substantial way.
+
+```{r}
+substantial <- merge(
+    covid19 %>%
+        filter(cases_avg_per_100k >= 50 / 7) %>%
+        group_by(state) %>%
+        slice_min(date, n = 1) %>%
+        ungroup() %>%
+        mutate(substantial_date = date) %>%
+        select(state, substantial_date),
+    covid19 %>%
+        filter(cases > 0) %>%
+        group_by(state) %>%
+        slice_min(date, n = 1) %>%
+        ungroup() %>%
+        mutate(first_case_date = date) %>%
+        select(state, first_case_date),
+    by = 'state'
+) %>%
+    arrange(substantial_date) %>%
+    mutate(state = factor(state, levels = rev(state)))
+```
+
+```{r, fig.width=8, fig.height=10}
+ggplot(substantial, aes(y = state)) +
+    geom_segment(aes(
+        x = first_case_date, xend = substantial_date,
+        y = state, yend = state,
+        color = "Time since First Case to Substantial Spread"
+    ), 
+        linewidth = 0.8) +
+    geom_point(aes(
+        x = substantial_date,
+        color = "Substantial Transmission Date"
+    ),
+        size = 3
+    ) +
+    scale_color_manual(
+      name = "Legend",
+      values = c(
+        "Time since First Case to Substantial Spread" = "grey70",
+        "Substantial Transmission Date" = "darkblue"
+      )
+    ) +
+    scale_x_date(
+      limits = c(min(substantial$first_case_date), max(substantial$substantial_date)),
+      date_labels = "%Y-%m"
+    ) +
+    labs(
+      title = "Substantial Transmission of COVID-19 in States",
+      subtitle = "Definition: ≥ 50 new cases per 100,000 persons in the past 7 days",
+      x = "Date",
+      y = "State"
+    ) +
+    theme_minimal() +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(face = "bold", size = 14),
+      axis.text.y = element_text(size = 9),
+      legend.position = "bottom"
+    )
+```
+
+Based on [the definition of thresholds for community transmission levels of SARS-CoV-2 by CDC][3], the transmission level is considered as "Substantial" when there are 50-99.99 new cases per 100,000 persons in the past 7 days.
+Therefore, we use the first date that at least 50 cases reported per 100k persons for each state in our analysis.
+And based on the data given in this repository, the first five states to experience Covid in a substantial way are:
+
+1. New York
+1. New Jersey
+1. Louisiana
+1. Massachusetts
+1. Connecticut
+
+[3]: https://www.cdc.gov/mmwr/volumes/70/wr/mm7030e2.htm#T1_down

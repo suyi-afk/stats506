@@ -1,0 +1,77 @@
+---
+title: "PS04 P1"
+---
+
+
+
+
+# Problem 1 - Tidyverse: New Zealand
+
+## Load data
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r}
+nzge_url = "https://phuongov.github.io/stats506-f26/data_f26/nzge.rds"
+if (!dir.exists('p1')) dir.create('p1')
+if (!file.exists('./p1/nzge.rds')) download.file(nzge_url, './p1/nzge.rds')
+```
+
+```{r}
+nzge <- readRDS("./p1/nzge.rds")
+```
+
+
+
+
+## Process data
+
+a. Generate a table (which can just be a nicely printed tibble) of vote count (regardless of party) per year/type. Make sure to sort it by vote count.
+
+```{r}
+result.a <- nzge %>% 
+  select(election_year, voting_type, votes) %>%
+  group_by(election_year, voting_type) %>% 
+  summarise(total_votes = sum(votes), .groups = "drop") %>%
+  arrange(desc(total_votes))
+
+tibble(result.a)
+```
+
+
+
+
+
+Focus only on the 2014 election. Report the proportion of votes for each party in the Candidate election. Again, produce a nice table and sort it by percent of vote.
+
+```{r}
+result.b <- nzge %>%
+    filter(election_year == 2014, voting_type == "Candidate") %>%
+    select(party, votes) %>%
+    group_by(party) %>% 
+    summarise(total_votes = sum(votes), .groups = "drop") %>% 
+    arrange(desc(total_votes)) %>%
+    mutate(vote_proportion = round(total_votes / sum(total_votes), 6)) %>%
+    select(party, vote_proportion)
+
+tibble(result.b)
+```
+
+
+
+
+
+Produce a nice table indicating, for each year, which party won the Candidate vote and which party won the Party vote.
+
+```{r}
+result.c <- nzge %>%
+  group_by(election_year, voting_type, party) %>%
+  summarise(total_votes = sum(votes), .groups = "drop_last") %>%
+  filter(total_votes == max(total_votes)) %>%
+  select(election_year, voting_type, party) %>%
+  pivot_wider(names_from = voting_type, values_from = party)
+
+tibble(result.c)
+```

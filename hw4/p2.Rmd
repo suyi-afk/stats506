@@ -1,0 +1,115 @@
+---
+title: "PS04 P2"
+---
+
+
+
+
+# Problem 2 - Tidyverse: Tennis
+
+## Load data
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(infer)
+```
+
+```{r}
+atp_2019_url = paste(
+    "https://raw.githubusercontent.com/azhou5849/tennis-atp-sackmann-data/",
+    "refs/heads/master/atp_matches_2019.csv"
+)
+if (!dir.exists('p2')) dir.create('p2')
+if (!file.exists('./p2/atp_matches_2019.csv'))
+    download.file(atp_2019_url, './p2/atp_matches_2019.csv')
+```
+
+```{r}
+atp_2019 <- read.csv('./p2/atp_matches_2019.csv')
+```
+
+
+
+## Process data
+
+a. How many tournaments took place in 2019?
+
+```{r}
+atp_2019 %>% summarize(tourney_count = n_distinct(tourney_id))
+```
+
+
+
+There are 128 tournaments took place in 2019.
+
+
+b. Did any player win more than one tournament? If so, how many players won more than one tournament, and how many tournaments did the most winning player(s) win?
+
+```{r}
+atp_2019 %>%
+    filter(round == "F") %>%
+    group_by(winner_id, winner_name) %>%
+    summarize(win_count = n_distinct(tourney_id), .groups = "drop") %>%
+    filter(win_count > 1) %>%
+    arrange(desc(win_count))
+```
+
+
+
+There are 12 players who won more than one tournament. The most winning players are Novak Djokovic and Dominic Thiem, who both won 5 tournaments.
+
+
+c. Is there any evidence that winners have more aces than losers? (If you address this with a hypothesis test, do not use base R functionality - continue to remain in the Tidyverse.)
+
+```{r}
+atp_2019 %>%
+    select(w_ace, l_ace) %>%
+    drop_na() %>%
+    mutate(ace_diff = w_ace - l_ace) %>%
+    summarise(
+        n = n(),
+        mean_diff = mean(ace_diff),
+        se = sd(ace_diff) / sqrt(n),
+        t_stat = mean_diff / se,
+        p_value = pt(t_stat, df = n - 1, lower.tail = FALSE)
+    )
+```
+
+
+
+Since p < 0.001, there is strong evidence that winners have more aces than losers on average.
+
+
+d. Identify the player(s) with the highest win-rate. (Note that this is NOT asking for the highest number of wins.) Restrict to players with at least 5 matches.
+
+```{r}
+bind_rows(
+    atp_2019 %>%
+        select(winner_id, winner_name) %>%
+        mutate(
+            id = winner_id,
+            name = winner_name,
+            win = TRUE
+        ) %>%
+        select(id, name, win),
+    atp_2019 %>%
+        select(loser_id, loser_name) %>%
+        mutate(
+            id = loser_id,
+            name = loser_name,
+            win = FALSE
+        ) %>%
+        select(id, name, win)
+) %>%
+    group_by(id, name) %>%
+    summarise(total_game = n(), win_rate = mean(win), .groups = "drop") %>%
+    filter(total_game >= 5) %>%
+    arrange(desc(win_rate)) %>%
+    mutate(win_rate = round(win_rate, 4)) %>%
+    slice_head(n = 5)
+    
+```
+
+
+
+Rafael Nadal has the highest win-rate with 86.96% after attending 69 matches.

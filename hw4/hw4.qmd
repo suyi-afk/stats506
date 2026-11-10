@@ -1,0 +1,22 @@
+---
+title: "Homework 4"
+author: "Yifei Wang"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+GitHub repository:
+
+```{r}
+#| child: p1.Rmd
+```
+
+```{r}
+#| child: p2.Rmd
+```
+
+```{r}
+#| child: p3.Rmd
+```
