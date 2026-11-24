@@ -1,0 +1,81 @@
+# Problem 2 - Tidyverse: Tennis - data.table
+
+```{r, message=FALSE, warning=FALSE}
+library(data.table)
+library(stringr)
+```
+
+```{r}
+atp_2019_url = paste0(
+    "https://raw.githubusercontent.com/azhou5849/tennis-atp-sackmann-data/",
+    "refs/heads/master/atp_matches_2019.csv"
+)
+if (!dir.exists('p2')) dir.create('p2')
+if (!file.exists('./p2/atp_matches_2019.csv'))
+    download.file(atp_2019_url, './p2/atp_matches_2019.csv')
+```
+
+```{r}
+atp_2019 <- fread('./p2/atp_matches_2019.csv')
+```
+
+How many tournaments took place in 2019?
+
+```{r}
+uniqueN(atp_2019$tourney_id)
+```
+
+128 tournaments took place in 2019.
+
+Did any player win more than one tournament? If so, how many players won more than one tournament, and how many tournaments did the most winning player(s) win?
+
+```{r}
+atp_2019
+```
+
+```{r}
+multiple_win <- atp_2019[round == "F",
+                        .(count = .N),
+                        by = winner_name][count > 1][order(-count)]
+
+list(
+  win_count = nrow(multiple_win),
+  most_winner = multiple_win[count == max(count), winner_name],
+  most_winner_wins = max(multiple_win$count)
+)
+```
+
+12 players won more than one tournament in 2019. Novak Djokovic and Dominic Thiem won the most tournaments, with 5 wins each.
+
+Is there any evidence that winners have more aces than losers? 
+
+```{r}
+t.test(
+  atp_2019$w_ace,
+  atp_2019$l_ace,
+  paired = TRUE,
+  alternative = "greater"
+)
+```
+
+Yes, there is strong evidence that winners have more aces than losers on average. The p-value is less than 2.2e-16, which is much smaller than 0.05. On average, winners have about 1.70 more aces than losers.
+
+Identify the player(s) with the highest win-rate. (Note that this is NOT asking for the highest number of wins.) Restrict to players with at least 5 matches.
+
+```{r}
+win_count <- atp_2019[, .(win_count = .N), by = .(name = winner_name)]
+lose_count <- atp_2019[, .(lose_count = .N), by = .(name = loser_name)]
+
+player_stats <- merge(win_count, lose_count, by = "name", all = TRUE)
+
+player_stats[is.na(win_count), win_count := 0]
+player_stats[is.na(lose_count), lose_count := 0]
+
+player_stats[, total_match := win_count + lose_count]
+player_stats[, win_rate := win_count / total_match]
+
+eligible <- player_stats[total_match >= 5]
+eligible[win_rate == max(win_rate)]
+```
+
+Rafael Nadal had the highest win rate of 86.96%. He won 60 out of 69 matches in 2019.

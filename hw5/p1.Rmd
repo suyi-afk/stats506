@@ -1,0 +1,393 @@
+## Problem 1 - OOP Programming
+
+```{r}
+library(methods)
+```
+
+```{r}
+#' S4 Class Representing a Wald Confidence Interval
+#'
+#' @slot lb Numeric scalar lower bound.
+#' @slot ub Numeric scalar upper bound.
+#' @slot mean Numeric scalar point estimate (center).
+#' @slot sterr Numeric scalar standard error.
+#' @slot level Numeric scalar confidence level in (0, 1).
+setClass(
+  "waldCI",
+  slots = c(
+    lb = "numeric",
+    ub = "numeric",
+    mean = "numeric",
+    sterr = "numeric",
+    level = "numeric"
+  )
+)
+```
+
+A constructor, which takes in a confidence level (0,1) and either a mean and standard error, or a lower and upper bound. This should be a custom constructor, not new() or waldCI().
+
+```{r}
+.waldCIBounds <- function (level, mean, sterr) {
+  z <- qnorm(1 - (1 - level) / 2)
+  lb <- mean - z * sterr
+  ub <- mean + z * sterr
+  list(lb = lb, ub = ub)
+}
+
+.waldCIMeanSterr <- function (level, lb, ub) {
+  z <- qnorm(1 - (1 - level) / 2)
+  mean <- (lb + ub) / 2
+  sterr <- (ub - lb) / (2 * z)
+  list(mean = mean, sterr = sterr)
+}
+
+#' Constructor for `waldCI`
+#'
+#' Constructs a `waldCI` object from a confidence level and either
+#' (`mean` and `sterr`) or (`lb` and `ub`).
+#'
+#' @param level Confidence level strictly between 0 and 1
+#' @param mean point estimate
+#' @param sterr standard error
+#' @param lb lower bound
+#' @param ub upper bound
+#' @return waldCI object.
+wald_ci <- function(level, mean = NULL, sterr = NULL, lb = NULL, ub = NULL) {
+  if (missing(level) || !is.numeric(level) || length(level) != 1L ||
+      is.na(level) || level <= 0 || level >= 1) {
+    stop("'level' must be a numeric value in (0, 1).")
+  }
+  if (is.null(mean) != is.null(sterr)) {
+    stop("Provide both 'mean' and 'sterr' or neither.")
+  }
+  if (is.null(lb) != is.null(ub)) {
+    stop("Provide both 'lb' and 'ub' or neither.")
+  }
+  if (is.null(mean) == is.null(lb)) {
+    stop("You must supply either ('mean' and 'sterr') or ('lb' and 'ub'). But not both.")
+  }
+
+  if (!is.null(mean)) {
+    if (sterr <= 0) {
+      stop("'sterr' must be positive.")
+    }
+    lb_ub <- .waldCIBounds(level, mean, sterr)
+    new(
+      "waldCI",
+      lb = as.numeric(lb_ub$lb),
+      ub = as.numeric(lb_ub$ub),
+      mean = as.numeric(mean),
+      sterr = as.numeric(sterr),
+      level = as.numeric(level)
+    )
+  } else {
+    mean_sterr <- .waldCIMeanSterr(level, lb, ub)
+    new(
+      "waldCI",
+      lb = as.numeric(lb),
+      ub = as.numeric(ub),
+      mean = as.numeric(mean_sterr$mean),
+      sterr = as.numeric(mean_sterr$sterr),
+      level = as.numeric(level)
+    )
+  }
+}
+```
+
+A validator
+
+```{r}
+setValidity("waldCI", function(obj) {
+  slot_names <- c("lb", "ub", "mean", "sterr", "level")
+  for (s in slot_names) {
+    val <- slot(obj, s)
+    if (!is.numeric(val) || length(val) != 1L || is.na(val) || !is.finite(val)) {
+      stop(sprintf("Slot '%s' must be a numeric scalar.", s))
+    }
+  }
+  if (obj@sterr <= 0) {
+    stop("'sterr' must be a positive number.")
+  }
+  if (!(obj@level > 0 && obj@level < 1)) {
+    stop("'level' must be strictly between 0 and 1.")
+  }
+  if (obj@lb >= obj@ub) {
+    stop("'lb' must be less than 'ub'.")
+  }
+  z <- qnorm(1 - (1 - obj@level) / 2)
+  expected_lb <- obj@mean - z * obj@sterr
+  expected_ub <- obj@mean + z * obj@sterr
+  if (!isTRUE(all.equal(c(expected_lb, expected_ub), c(obj@lb, obj@ub)))) {
+    return("Slots 'lb', 'ub', 'mean', 'sterr', and 'level' are inconsistent.")
+  }
+  return(TRUE)
+})
+```
+
+A `show` method
+
+```{r}
+#' Display a `waldCI` object
+#'
+#' @param object A `waldCI` object.
+#' @return Invisibly returns `object`.
+setMethod("show", "waldCI", function(object) {
+  cat(sprintf(
+    "Wald Confidence Interval (%.3f level)\n  [%.4f, %.4f]  (mean = %.4f, SE = %.4f)\n",
+    object@level, object@lb, object@ub, object@mean, object@sterr
+  ))
+  return(invisible(object))
+})
+```
+
+Accessors: `lb`, `ub`, `mean`, `sterr`, `level`.
+
+```{r}
+setGeneric("lb", function(x) standardGeneric("lb"))
+#' @title Return the lower bound of `waldCI`
+#' @param x A `waldCI` object
+#' @return Its lower bound
+setMethod("lb", "waldCI", function(x) slot(x, "lb"))
+
+setGeneric("ub", function(x) standardGeneric("ub"))
+#' @title Return the upper bound of `waldCI`
+#' @param x A `waldCI` object
+#' @return Its upper bound
+setMethod("ub", "waldCI", function(x) slot(x, "ub"))
+
+setGeneric("mean")
+#' @title Return the mean of `waldCI`
+#' @param x A `waldCI` object
+#' @return Its mean
+setMethod("mean", "waldCI", function(x) slot(x, "mean"))
+
+setGeneric("sterr", function(x) standardGeneric("sterr"))
+#' @title Return the standard error of `waldCI`
+#' @param x A `waldCI` object
+#' @return Its standard error
+setMethod("sterr", "waldCI", function(x) slot(x, "sterr"))
+
+setGeneric("level", function(x) standardGeneric("level"))
+#' @title Return the confidence level of `waldCI`
+#' @param x A `waldCI` object
+#' @return Its confidence level
+setMethod("level", "waldCI", function(x) slot(x, "level"))
+```
+
+```{r}
+tryCatch({ setGeneric("lb<-") }, error=function(e) { setGeneric("lb<-", function(obj, value) standardGeneric("lb<-")) })
+#' @title Set the lower bound of `waldCI`
+#' @param obj A `waldCI` object
+#' @param value The new lower bound
+#' @return The updated object
+setMethod("lb<-", "waldCI", function(obj, value) {
+  obj@lb <- value
+  obj@ub <- obj@mean + (obj@mean - obj@lb)
+  mean_sterr <- .waldCIMeanSterr(obj@level, obj@lb, obj@ub)
+  obj@sterr <- mean_sterr$sterr
+  validObject(obj)
+  return(obj)
+})
+
+tryCatch({ setGeneric("ub<-") }, error=function(e) { setGeneric("ub<-", function(obj, value) standardGeneric("ub<-")) })
+#' @title Set the upper bound of `waldCI`
+#' @param obj A `waldCI` object
+#' @param value The new upper bound
+#' @return The updated object
+setMethod("ub<-", "waldCI", function(obj, value) {
+  obj@ub <- value
+  obj@lb <- obj@mean - (obj@ub - obj@mean)
+  mean_sterr <- .waldCIMeanSterr(obj@level, obj@lb, obj@ub)
+  obj@sterr <- mean_sterr$sterr
+  validObject(obj)
+  return(obj)
+})
+
+tryCatch({ setGeneric("mean<-") }, error=function(e) { setGeneric("mean<-", function(obj, value) standardGeneric("mean<-")) })
+#' @title Set the mean of `waldCI`
+#' @param obj A `waldCI` object
+#' @param value The new mean
+#' @return The updated object
+setMethod("mean<-", "waldCI", function(obj, value) {
+  obj@mean <- value
+  lb_ub <- .waldCIBounds(obj@level, obj@mean, obj@sterr)
+  obj@lb <- lb_ub$lb
+  obj@ub <- lb_ub$ub
+  validObject(obj)
+  return(obj)
+})
+
+tryCatch({ setGeneric("sterr<-") }, error=function(e) { setGeneric("sterr<-", function(obj, value) standardGeneric("sterr<-")) })
+#' @title Set the standard error of `waldCI`
+#' @param obj A `waldCI` object
+#' @param value The new standard error
+#' @return The updated object
+setMethod("sterr<-", "waldCI", function(obj, value) {
+  obj@sterr <- value
+  lb_ub <- .waldCIBounds(obj@level, obj@mean, obj@sterr)
+  obj@lb <- lb_ub$lb
+  obj@ub <- lb_ub$ub
+  validObject(obj)
+  return(obj)
+})
+
+tryCatch({ setGeneric("level<-") }, error=function(e) { setGeneric("level<-", function(obj, value) standardGeneric("level<-")) })
+#' @title Set the confidence level of `waldCI`
+#' @param obj A `waldCI` object
+#' @param value The new confidence level
+#' @return The updated object
+setMethod("level<-", "waldCI", function(obj, value) {
+  obj@level <- value
+  lb_ub <- .waldCIBounds(obj@level, obj@mean, obj@sterr)
+  obj@lb <- lb_ub$lb
+  obj@ub <- lb_ub$ub
+  validObject(obj)
+  return(obj)
+})
+```
+
+A `contains` method
+
+```{r}
+setGeneric("contains", function(x, val) standardGeneric("contains"))
+#' Check if a numeric value falls within a `waldCI`
+#'
+#' @param x A `waldCI` object.
+#' @param val Numeric value(s) to test.
+#' @return Logical vector indicating whether each value lies in `[lb, ub]`.
+setMethod("contains", "waldCI", function(x, val) {
+  val >= x@lb & val <= x@ub
+})
+```
+
+An `overlap` method
+
+```{r}
+setGeneric("overlap", function(ci1, ci2) standardGeneric("overlap"))
+#' Check whether two `waldCI` objects overlap
+#'
+#' @param ci1 First `waldCI` object.
+#' @param ci2 Second `waldCI` object.
+#' @return Logical scalar indicating whether `[lb1, ub1]` and `[lb2, ub2]` overlap
+setMethod("overlap", signature(ci1 = "waldCI", ci2 = "waldCI"), function(ci1, ci2) {
+  return(
+    contains(ci1, ci2@lb) || contains(ci1, ci2@ub) ||
+    contains(ci2, ci1@lb) || contains(ci2, ci1@ub)
+  )
+})
+```
+
+`as.numeric` to return `c(lb, ub)`.
+
+```{r}
+#' Coerce a `waldCI` to a numeric vector `c(lb, ub)`
+#'
+#' @param x A `waldCI` object.
+#' @return Numeric vector of length 2 containing lower and upper bounds.
+setGeneric("as.numeric")
+setMethod("as.numeric", "waldCI", function(x) {
+  c(x@lb, x@ub)
+})
+```
+
+```{r}
+#' Transform a `waldCI` using a function
+#'
+#' Applies a function to the bounds of a `waldCI` object and returns a new
+#' `waldCI` object. Warns that only monotonic transformations make sense.
+#'
+#' @param x A `waldCI` object
+#' @param f A function
+#' @return A transformed `waldCI` object.
+setGeneric("transformCI", function(x, f) standardGeneric("transformCI"))
+setMethod("transformCI", signature(x = "waldCI", f = "ANY"), function(x, f) {
+  warning("Only monotonic transformations make sense for transforming a confidence interval.")
+  a <- f(x@lb)
+  b <- f(x@ub)
+  result <- wald_ci(level = x@level, lb = min(a, b), ub = max(a, b))
+  return(result)
+})
+```
+
+Use your waldCI class to create three objects, evaluate the following code
+
+```{r}
+ci1 <- wald_ci(level = 0.95, lb = 17.2, ub = 24.7)
+ci2 <- wald_ci(level = 0.99, mean = 13, sterr = 2.5)
+ci3 <- wald_ci(level = 0.75, lb = 27.43, ub = 39.22)
+```
+
+```{r}
+as.numeric(ci1)
+as.numeric(ci2)
+as.numeric(ci3)
+```
+
+```{r}
+show(ci1)
+show(ci2)
+show(ci3)
+```
+
+```{r}
+lb(ci2)
+ub(ci2)
+mean(ci1)
+sterr(ci3)
+level(ci2)
+```
+
+```{r}
+lb(ci2) <- 10.5
+mean(ci3) <- 34
+level(ci3) <- .8
+```
+
+```{r}
+contains(ci1, 17)
+contains(ci3, 44)
+overlap(ci1, ci2)
+```
+
+```{r}
+eci1 <- transformCI(ci1, sqrt)
+eci1
+```
+
+```{r}
+mean(transformCI(ci2, log))
+```
+
+Show that your validator does not allow the creation of invalid confidence intervals
+
+```{r}
+# 1. Negative standard error
+try(wald_ci(level = 0.95, mean = 10, sterr = -1.5))
+```
+
+```{r}
+# 2. lb > ub
+try(wald_ci(level = 0.95, lb = 25, ub = 10))
+```
+
+```{r}
+# 3. Infinite bounds
+try(wald_ci(level = 0.95, lb = -Inf, ub = 10))
+try(wald_ci(level = 0.95, lb = 0, ub = Inf))
+```
+
+```{r}
+# 4. Invalid use of setters
+ci4 <- wald_ci(level = 0.95, mean = 10, sterr = 2)
+try(sterr(ci4) <- -0.5)
+```
+
+```{r}
+ci4 <- wald_ci(level = 0.95, mean = 10, sterr = 2)
+try(level(ci4) <- -1)
+```
+
+```{r}
+ci4 <- wald_ci(level = 0.95, mean = 10, sterr = 2)
+try(lb(ci4) <- 15)
+```
